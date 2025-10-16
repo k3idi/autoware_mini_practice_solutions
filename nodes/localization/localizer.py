@@ -80,8 +80,7 @@ class Localizer:
         x, y, z, w = quaternion_from_euler(0, 0, yaw)
         orientation = Quaternion(x, y, z, w)
 
-        #self.current_pose_msg.header.stamp = msg.time
-        # i don't know how to take the stamp from INSPVA message header
+        self.current_pose_msg.header.stamp = msg.header.stamp
         self.current_pose_msg.header.frame_id = "map"
         self.current_pose_msg.pose.position.x = transformed_x
         self.current_pose_msg.pose.position.y = transformed_y
@@ -96,13 +95,11 @@ class Localizer:
         self.current_transform_msg.transform.translation.z = 0 + self.current_pose_msg.pose.position.z
         self.current_transform_msg.transform.rotation = self.current_pose_msg.pose.orientation
         self.br.sendTransform(self.current_transform_msg)
-        #self.current_velocity_msg.header.stamp = msg.secs
-        # i don't know how to take the stamp from INSPVA message header
+        self.current_velocity_msg.header.stamp = msg.header.stamp
 
 
     def publish_velocity(self, msg):
-        #self.current_velocity_msg.header.stamp = msg.secs
-        # i don't know how to take the stamp from INSPVA message header
+        self.current_velocity_msg.header.stamp = msg.header.stamp
         self.current_velocity_msg.header.frame_id = "base_link"
         self.current_velocity_msg.twist.linear.x = (msg.north_velocity**2 + msg.east_velocity**2)**0.5
         self.current_velocity_pub.publish(self.current_velocity_msg)
