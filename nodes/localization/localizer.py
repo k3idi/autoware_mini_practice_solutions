@@ -90,12 +90,13 @@ class Localizer:
 
         self.current_transform_msg.header.frame_id = "map"
         self.current_transform_msg.child_frame_id = "base_link"
+        self.current_transform_msg.header.stamp = msg.header.stamp
         self.current_transform_msg.transform.translation.x = 0 + self.current_pose_msg.pose.position.x
         self.current_transform_msg.transform.translation.y = 0 + self.current_pose_msg.pose.position.y
         self.current_transform_msg.transform.translation.z = 0 + self.current_pose_msg.pose.position.z
         self.current_transform_msg.transform.rotation = self.current_pose_msg.pose.orientation
         self.br.sendTransform(self.current_transform_msg)
-        self.current_velocity_msg.header.stamp = msg.header.stamp
+
 
 
     def publish_velocity(self, msg):
