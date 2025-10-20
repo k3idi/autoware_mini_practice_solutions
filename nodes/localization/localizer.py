@@ -65,14 +65,12 @@ class Localizer:
         transformed_x, transformed_y = self.transformer.transform(msg.latitude, msg.longitude)
         transformed_x -= self.origin_x
         transformed_y -= self.origin_y
-        print(f'Latitude: {transformed_x}, longitude: {transformed_y}')
 
 
     def publish_pose_and_transform(self, msg):
         transformed_x, transformed_y = self.transformer.transform(msg.latitude, msg.longitude)
         transformed_x -= self.origin_x
         transformed_y -= self.origin_y
-        print(f'Latitude: {transformed_x}, longitude: {transformed_y}')
 
         azimuth_correction = self.utm_projection.get_factors(msg.longitude, msg.latitude).meridian_convergence
         azimuth = math.radians(msg.azimuth - azimuth_correction)
