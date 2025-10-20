@@ -28,9 +28,7 @@ class Localizer:
         self.origin_x, self.origin_y = self.transformer.transform(utm_origin_lat, utm_origin_lon)
 
         # Subscribers
-        rospy.Subscriber('/novatel/oem7/inspva', INSPVA, self.transform_coordinates)
-        rospy.Subscriber('/novatel/oem7/inspva', INSPVA, self.publish_pose_and_transform)
-        rospy.Subscriber('/novatel/oem7/inspva', INSPVA, self.publish_velocity)
+        rospy.Subscriber('/novatel/oem7/inspva', INSPVA, self.publish_all)
 
         # Publishers
         self.current_pose_pub = rospy.Publisher('current_pose', PoseStamped, queue_size=10)
@@ -59,15 +57,8 @@ class Localizer:
 
         return yaw
 
-
-    def transform_coordinates(self, msg):
-        # use the transformer to transform the coordinates from the INSPVA message
-        transformed_x, transformed_y = self.transformer.transform(msg.latitude, msg.longitude)
-        transformed_x -= self.origin_x
-        transformed_y -= self.origin_y
-
-
-    def publish_pose_and_transform(self, msg):
+    # publish the position, velocity and transform
+    def publish_all(self, msg):
         transformed_x, transformed_y = self.transformer.transform(msg.latitude, msg.longitude)
         transformed_x -= self.origin_x
         transformed_y -= self.origin_y
@@ -79,6 +70,7 @@ class Localizer:
         x, y, z, w = quaternion_from_euler(0, 0, yaw)
         orientation = Quaternion(x, y, z, w)
 
+        # publish position
         self.current_pose_msg.header.stamp = msg.header.stamp
         self.current_pose_msg.header.frame_id = "map"
         self.current_pose_msg.pose.position.x = transformed_x
@@ -87,6 +79,7 @@ class Localizer:
         self.current_pose_msg.pose.orientation = orientation
         self.current_pose_pub.publish(self.current_pose_msg)
 
+       # publish transform
         self.current_transform_msg.header.frame_id = "map"
         self.current_transform_msg.child_frame_id = "base_link"
         self.current_transform_msg.header.stamp = msg.header.stamp
@@ -96,9 +89,7 @@ class Localizer:
         self.current_transform_msg.transform.rotation = self.current_pose_msg.pose.orientation
         self.br.sendTransform(self.current_transform_msg)
 
-
-
-    def publish_velocity(self, msg):
+        # publish velocity
         self.current_velocity_msg.header.stamp = msg.header.stamp
         self.current_velocity_msg.header.frame_id = "base_link"
         self.current_velocity_msg.twist.linear.x = (msg.north_velocity**2 + msg.east_velocity**2)**0.5
