@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import rospy
+import numpy as np
 
 from autoware_mini.msg import Path
 from geometry_msgs.msg import PoseStamped
@@ -8,6 +9,8 @@ from autoware_mini.msg import VehicleCmd
 
 from shapely.geometry import LineString, Point
 from shapely import prepare, distance
+
+from tf.transformations import euler_from_quaternion
 
 class PurePursuitFollower:
     def __init__(self):
@@ -44,6 +47,21 @@ class PurePursuitFollower:
         if self.path_linestring is not None:
             d_ego_from_path_start = self.path_linestring.project(current_pose)
             print(f'd_ego_from_path_start = {d_ego_from_path_start}')
+
+        # Reading in the parameter values
+        lookahead_distance = rospy.get_param("~lookahead_distance")
+        wheel_base = rospy.get_param("/vehicle/wheel_base")
+
+        # using euler_from_quaternion to get the heading angle
+        _, _, heading = euler_from_quaternion([msg.pose.orientation.x, msg.pose.orientation.y,
+                                               msg.pose.orientation.z, msg.pose.orientation.w])
+
+        # Missing: lookahead point calculation.
+        lookahead_point = 0
+
+        # lookahead point heading calculation
+        lookahead_heading = np.arctan2(lookahead_point.y - current_pose.y, lookahead_point.x - current_pose.x)
+
 
 
     def run(self):
