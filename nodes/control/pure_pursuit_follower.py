@@ -2,6 +2,7 @@
 
 import rospy
 import numpy as np
+import math
 
 from autoware_mini.msg import Path
 from geometry_msgs.msg import PoseStamped
@@ -56,12 +57,13 @@ class PurePursuitFollower:
         #print(f'x: {msg.pose.position.x}, {msg.pose.position.y}')
         self.vehicle_cmd_msg.header.stamp = msg.header.stamp
         self.vehicle_cmd_msg.header.frame_id = "base_link"
-        self.vehicle_cmd_pub.publish(self.vehicle_cmd_msg)
 
         current_pose = Point([msg.pose.position.x, msg.pose.position.y])
         if self.path_linestring is not None:
             d_ego_from_path_start = self.path_linestring.project(current_pose)
             print(f'd_ego_from_path_start = {d_ego_from_path_start}')
+        else:
+            d_ego_from_path_start = 0
 
         lookahead_distance = rospy.get_param("~lookahead_distance")
         wheel_base = rospy.get_param("/vehicle/wheel_base")
@@ -73,11 +75,12 @@ class PurePursuitFollower:
         lookahead_heading_angle = np.arctan2(lookahead_point.y - current_pose.y, lookahead_point.x - current_pose.x)
         
         ld = ((lookahead_point.y - current_pose.y)**2 + (lookahead_point.x - current_pose.x)**2)**0.5
-        alpha = lookahead_heading_angle - heading_angle
+        alpha = math.radians(-lookahead_heading_angle + heading_angle)
 
-        self.vehicle_cmd_msg.ctrl_cmd.steering_angle = np.arctan2(2 * wheel_base * np.sin(alpha) / ld)
+        self.vehicle_cmd_msg.ctrl_cmd.steering_angle = np.arctan(2 * wheel_base * np.sin(alpha) / ld)
         self.vehicle_cmd_msg.ctrl_cmd.linear_velocity = self.distance_to_velocity_interpolator(d_ego_from_path_start)
 
+        self.vehicle_cmd_pub.publish(self.vehicle_cmd_msg)
 
 
 
