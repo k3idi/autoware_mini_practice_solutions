@@ -59,11 +59,11 @@ class PurePursuitFollower:
         self.vehicle_cmd_msg.header.frame_id = "base_link"
 
         current_pose = Point([msg.pose.position.x, msg.pose.position.y])
-        if self.path_linestring is not None:
-            d_ego_from_path_start = self.path_linestring.project(current_pose)
-            print(f'd_ego_from_path_start = {d_ego_from_path_start}')
-        else:
-            d_ego_from_path_start = 0
+        if self.path_linestring is None:
+            return
+
+        d_ego_from_path_start = self.path_linestring.project(current_pose)
+        print(f'd_ego_from_path_start = {d_ego_from_path_start}')
 
         lookahead_distance = rospy.get_param("~lookahead_distance")
         wheel_base = rospy.get_param("/vehicle/wheel_base")
