@@ -74,7 +74,7 @@ class PurePursuitFollower:
         lookahead_heading_angle = np.arctan2(lookahead_point.y - current_pose.y, lookahead_point.x - current_pose.x)
         
         ld = ((lookahead_point.y - current_pose.y)**2 + (lookahead_point.x - current_pose.x)**2)**0.5
-        alpha = math.radians(-lookahead_heading_angle + heading_angle)
+        alpha = lookahead_heading_angle - heading_angle
 
         self.vehicle_cmd_msg.ctrl_cmd.steering_angle = np.arctan(2 * self.wheel_base * np.sin(alpha) / ld)
         self.vehicle_cmd_msg.ctrl_cmd.linear_velocity = self.distance_to_velocity_interpolator(d_ego_from_path_start)
