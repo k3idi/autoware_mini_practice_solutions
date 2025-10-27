@@ -56,7 +56,6 @@ class PurePursuitFollower:
         self.distance_to_velocity_interpolator = interp1d(distances, velocities, kind='linear', bounds_error=False, fill_value=0.0)
 
     def current_pose_callback(self, msg):
-        #print(f'x: {msg.pose.position.x}, {msg.pose.position.y}')
         self.vehicle_cmd_msg.header.stamp = msg.header.stamp
         self.vehicle_cmd_msg.header.frame_id = "base_link"
 
@@ -65,7 +64,6 @@ class PurePursuitFollower:
             return
 
         d_ego_from_path_start = self.path_linestring.project(current_pose)
-        print(f'd_ego_from_path_start = {d_ego_from_path_start}')
 
         _, _, heading_angle = euler_from_quaternion([msg.pose.orientation.x, msg.pose.orientation.y,
                                                msg.pose.orientation.z, msg.pose.orientation.w])
