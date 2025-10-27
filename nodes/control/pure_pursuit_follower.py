@@ -70,7 +70,8 @@ class PurePursuitFollower:
         _, _, heading_angle = euler_from_quaternion([msg.pose.orientation.x, msg.pose.orientation.y,
                                                msg.pose.orientation.z, msg.pose.orientation.w])
 
-        lookahead_point = self.path_linestring.interpolate(self.lookahead_distance)
+        
+        lookahead_point = self.path_linestring.interpolate(self.lookahead_distance + d_ego_from_path_start)
         lookahead_heading_angle = np.arctan2(lookahead_point.y - current_pose.y, lookahead_point.x - current_pose.x)
         
         ld = ((lookahead_point.y - current_pose.y)**2 + (lookahead_point.x - current_pose.x)**2)**0.5
