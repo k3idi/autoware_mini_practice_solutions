@@ -21,7 +21,9 @@ class PurePursuitFollower:
         # Parameters
         self.path_linestring = None
         self.distance_to_velocity_interpolator = None
-
+        self.lookahead_distance = rospy.get_param("~lookahead_distance") 
+        self.wheel_base = rospy.get_param("/vehicle/wheel_base") 
+        
         # Publishers
         self.vehicle_cmd_pub = rospy.Publisher('/control/vehicle_cmd', VehicleCmd, queue_size=10 )
 
@@ -65,19 +67,16 @@ class PurePursuitFollower:
         d_ego_from_path_start = self.path_linestring.project(current_pose)
         print(f'd_ego_from_path_start = {d_ego_from_path_start}')
 
-        lookahead_distance = rospy.get_param("~lookahead_distance")
-        wheel_base = rospy.get_param("/vehicle/wheel_base")
-
         _, _, heading_angle = euler_from_quaternion([msg.pose.orientation.x, msg.pose.orientation.y,
                                                msg.pose.orientation.z, msg.pose.orientation.w])
 
-        lookahead_point = self.path_linestring.interpolate(lookahead_distance)
+        lookahead_point = self.path_linestring.interpolate(self.lookahead_distance)
         lookahead_heading_angle = np.arctan2(lookahead_point.y - current_pose.y, lookahead_point.x - current_pose.x)
         
         ld = ((lookahead_point.y - current_pose.y)**2 + (lookahead_point.x - current_pose.x)**2)**0.5
         alpha = math.radians(-lookahead_heading_angle + heading_angle)
 
-        self.vehicle_cmd_msg.ctrl_cmd.steering_angle = np.arctan(2 * wheel_base * np.sin(alpha) / ld)
+        self.vehicle_cmd_msg.ctrl_cmd.steering_angle = np.arctan(2 * self.wheel_base * np.sin(alpha) / ld)
         self.vehicle_cmd_msg.ctrl_cmd.linear_velocity = self.distance_to_velocity_interpolator(d_ego_from_path_start)
 
         self.vehicle_cmd_pub.publish(self.vehicle_cmd_msg)
