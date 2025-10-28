@@ -81,7 +81,6 @@ class PurePursuitFollower:
         self.vehicle_cmd_pub.publish(self.vehicle_cmd_msg)
 
 
-
     def run(self):
         rospy.spin()
 
