@@ -72,6 +72,23 @@ class Lanelet2GlobalPlanner:
             
                 waypoints.append(waypoint)
 
+        # remove all waypoints from the end of the list, that are farther from the goal point than the closest one we find:
+        prev_d_from_goal = None
+        for i in range(len(waypoints)-1, -1, -1):
+            d_from_goal = ((waypoints[i].position.x - self.current_goal_coordinates[0])**2 + (waypoints[i].position.y - self.current_goal_coordinates[1])**2)**0.5
+            
+            if prev_d_from_goal is None:
+                prev_d_from_goal = d_from_goal
+                continue
+                
+            if d_from_goal < prev_d_from_goal:
+                waypoints.pop(i+1)
+                prev_d_from_goal = d_from_goal
+            else:
+                self.current_goal = BasicPoint2d(waypoints[i+1].position.x, waypoints[i+1].position.y)
+                self.current_goal_coordinates = (waypoints[i+1].position.x, waypoints[i+1].position.y)
+                break
+
         return waypoints
         
     
