@@ -1,0 +1,4 @@
+The programme goes through the waypoints backwards, aka starting from the last waypoint (the theoretical goal point). At each waypoint, it checks its distance from 
+the goal point and compares it to the previous waypoint's distance from the goal point. Once it finds a waypoint, which is at a greater distance from the goal point
+than the previous one, then it has found that the previous waypoint was the one closest to the goal point. All waypoints at larger indexes than the found waypoint are 
+removed and the goal point is updated to match the x an y coordinates of the found waypoint.
