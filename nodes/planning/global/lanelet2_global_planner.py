@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+.#!/usr/bin/env python3
 
 import rospy
 
@@ -22,11 +22,14 @@ class Lanelet2GlobalPlanner:
         self.lanelet2_map_name = rospy.get_param("~lanelet2_map_path") # accessed only once
         self.lanelet2_map = self.load_lanelet2_map() # maybe move upper 5 parameters into this function
         self.output_frame = rospy.get_param("/config/planning/output_frame") # maybe wrong
+        self.distance_to_goal_limit = rospy.get_param("/config/planning/distance_to_goal_limit") # maybe wrong
 
         self.traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany, lanelet2.traffic_rules.Participants.VehicleTaxi) # might be accessed only once
         self.graph = lanelet2.routing.RoutingGraph(self.lanelet2_map, self.traffic_rules)
         self.current_location = None
+        self.current_location_coordinates = None
         self.current_goal = None
+        self.current_goal_coordinates = None
         #self.route = None
         
         # Publishers
@@ -79,7 +82,7 @@ class Lanelet2GlobalPlanner:
                       msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z,
                       msg.pose.orientation.w, msg.header.frame_id)
         self.current_goal = BasicPoint2d(msg.pose.position.x, msg.pose.position.y)
-        
+        self.current_goal_coordinates = (msg.pose.position.x, msg.pose.position.y) # for current distance calculation
 
     def current_pose_callback(self, msg):
         self.current_location = BasicPoint2d(msg.pose.position.x, msg.pose.position.y)
@@ -87,21 +90,28 @@ class Lanelet2GlobalPlanner:
         if self.current_goal is None:
             return
 
-        start_lanelet = findNearest(self.lanelet2_map.laneletLayer, self.current_location, 1)[0][1]
-        goal_lanelet = findNearest(self.lanelet2_map.laneletLayer, self.current_goal, 1)[0][1]
-
-        route = self.graph.getRoute(start_lanelet, goal_lanelet, 0, True)
-        if route is None:
-            rospy.logwarn("No route found!")
-            return None
-
-        path = route.shortestPath()
-        # This returns LaneletSequence to a point where a lane change would be necessary to continue
-        path_no_lane_change = path.getRemainingLane(start_lanelet)
-
-        print(f'path_no_lane_change = {path_no_lane_change}')
-
-        waypoints = lanelet_to_waypoints(path_no_lane_change)
+        self.current_location_coordinates = (msg.pose.position.x, msg.pose.position.y) # for current distance calculation
+        distance_from_goal = ((self.current_location_coordinates[0] - self.current_goal_coordinates[0])**2 + (self.current_location_coordinates[1] - self.current_goal_coordinates[1])**2)**0.5
+        if distance_from_goal > self.distance_to_goal_limit:
+            start_lanelet = findNearest(self.lanelet2_map.laneletLayer, self.current_location, 1)[0][1]
+            goal_lanelet = findNearest(self.lanelet2_map.laneletLayer, self.current_goal, 1)[0][1]
+    
+            route = self.graph.getRoute(start_lanelet, goal_lanelet, 0, True)
+            if route is None:
+                rospy.logwarn("No route found!")
+                return None
+    
+            path = route.shortestPath()
+            # This returns LaneletSequence to a point where a lane change would be necessary to continue
+            path_no_lane_change = path.getRemainingLane(start_lanelet)
+    
+            print(f'path_no_lane_change = {path_no_lane_change}')
+    
+            waypoints = lanelet_to_waypoints(path_no_lane_change)
+        else:
+            waypoints = []
+            rospy.loginfo("The detination has been reached and the path cleared.")
+            
         publish_waypoints(waypoints)
 
     
