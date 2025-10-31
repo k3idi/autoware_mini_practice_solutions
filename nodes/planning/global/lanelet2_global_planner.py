@@ -122,8 +122,6 @@ class Lanelet2GlobalPlanner:
             # This returns LaneletSequence to a point where a lane change would be necessary to continue
             path_no_lane_change = path.getRemainingLane(start_lanelet)
     
-            print(f'path_no_lane_change = {path_no_lane_change}')
-    
             waypoints = lanelet_to_waypoints(path_no_lane_change)
         else:
             waypoints = []
