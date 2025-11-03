@@ -23,8 +23,8 @@ class Lanelet2GlobalPlanner:
         self.utm_origin_lon = rospy.get_param("/localization/utm_origin_lon") # this and upper 3 might also be accessed only once
         self.lanelet2_map_name = rospy.get_param("~lanelet2_map_path") # accessed only once
         self.lanelet2_map = self.load_lanelet2_map() # maybe move upper 5 parameters into this function
-        self.output_frame = rospy.get_param("/config/planning/output_frame") # maybe wrong
-        self.distance_to_goal_limit = rospy.get_param("/config/planning/distance_to_goal_limit") # maybe wrong
+        self.output_frame = rospy.get_param("~output_frame") # maybe wrong
+        self.distance_to_goal_limit = rospy.get_param("~distance_to_goal_limit") # maybe wrong
 
         self.traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany, lanelet2.traffic_rules.Participants.VehicleTaxi) # might be accessed only once
         self.graph = lanelet2.routing.RoutingGraph(self.lanelet2_map, self.traffic_rules)
