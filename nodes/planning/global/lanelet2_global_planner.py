@@ -10,6 +10,8 @@ from lanelet2.geometry import findNearest
 
 from geometry_msgs.msg import PoseStamped
 from autoware_mini.msg import Path
+from autoware_mini.msg import VehicleCmd
+from autoware_mini.msgs import Waypoint
 
 class Lanelet2GlobalPlanner:
     def __init__(self):
@@ -121,12 +123,12 @@ class Lanelet2GlobalPlanner:
             # This returns LaneletSequence to a point where a lane change would be necessary to continue
             path_no_lane_change = path.getRemainingLane(start_lanelet)
     
-            waypoints = lanelet_to_waypoints(path_no_lane_change)
+            waypoints = self.lanelet_to_waypoints(path_no_lane_change)
         else:
             waypoints = []
             rospy.loginfo("The detination has been reached and the path cleared.")
             
-        publish_waypoints(waypoints)
+        self.publish_waypoints(waypoints)
 
     
     def publish_waypoints(self, waypoints):      
