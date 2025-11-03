@@ -1,4 +1,4 @@
-.#!/usr/bin/env python3
+#!/usr/bin/env python3
 
 import rospy
 
@@ -30,7 +30,6 @@ class Lanelet2GlobalPlanner:
         self.current_location_coordinates = None
         self.current_goal = None
         self.current_goal_coordinates = None
-        #self.route = None
         
         # Publishers
         self.global_path_pub = rospy.Publisher('/planning/global/global_path', VehicleCmd, queue_size=10, latch=True) # topic might be wrong
