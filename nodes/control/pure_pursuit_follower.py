@@ -37,6 +37,8 @@ class PurePursuitFollower:
         self.vehicle_cmd_msg.ctrl_cmd.linear_velocity = 10.0
 
     def path_callback(self, msg):
+        if len(msg.waypoints) == 0:
+            path_linestring = None
         # convert waypoints to shapely linestring
         path_linestring = LineString([(w.position.x, w.position.y) for w in msg.waypoints])
         # prepare path - creates spatial tree, making the spatial queries more efficient
