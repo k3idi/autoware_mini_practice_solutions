@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+f#!/usr/bin/env python3
 
 import rospy
 
@@ -101,14 +101,7 @@ class Lanelet2GlobalPlanner:
                       msg.pose.orientation.w, msg.header.frame_id)
         self.current_goal = BasicPoint2d(msg.pose.position.x, msg.pose.position.y)
         self.current_goal_coordinates = (msg.pose.position.x, msg.pose.position.y) # for current distance calculation
-
-    def current_pose_callback(self, msg):
-        self.current_location = BasicPoint2d(msg.pose.position.x, msg.pose.position.y)
-
-        if self.current_goal is None:
-            return
-
-        self.current_location_coordinates = (msg.pose.position.x, msg.pose.position.y) # for current distance calculation
+        
         distance_from_goal = ((self.current_location_coordinates[0] - self.current_goal_coordinates[0])**2 + (self.current_location_coordinates[1] - self.current_goal_coordinates[1])**2)**0.5
         if distance_from_goal > self.distance_to_goal_limit:
             start_lanelet = findNearest(self.lanelet2_map.laneletLayer, self.current_location, 1)[0][1]
@@ -120,6 +113,7 @@ class Lanelet2GlobalPlanner:
                 return None
     
             path = route.shortestPath()
+
             # This returns LaneletSequence to a point where a lane change would be necessary to continue
             path_no_lane_change = path.getRemainingLane(start_lanelet)
     
@@ -129,6 +123,15 @@ class Lanelet2GlobalPlanner:
             rospy.loginfo("The detination has been reached and the path cleared.")
             
         self.publish_waypoints(waypoints)
+        
+    
+    def current_pose_callback(self, msg):
+        self.current_location = BasicPoint2d(msg.pose.position.x, msg.pose.position.y)
+
+        if self.current_goal is None:
+            return
+
+        self.current_location_coordinates = (msg.pose.position.x, msg.pose.position.y) # for current distance calculation
 
     
     def publish_waypoints(self, waypoints):      
