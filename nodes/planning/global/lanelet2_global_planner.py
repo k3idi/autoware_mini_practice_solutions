@@ -59,9 +59,9 @@ class Lanelet2GlobalPlanner:
         waypoints = []
         for lanelet in route:
             if 'speed_ref' in lanelet.attributes:
-                speed = float(lanelet.attributes['speed_ref'])
+                speed = float(lanelet.attributes['speed_ref']) / 3.6
             else:
-                speed = rospy.get_param("~speed_limit") # perhaps have to change the path
+                speed = rospy.get_param("~speed_limit") / 3.6
 
             for point in lanelet.centerline:
                 waypoint = Waypoint()
