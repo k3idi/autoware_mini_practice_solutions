@@ -35,8 +35,8 @@ class ClusterDetector:
         data = numpify(msg)
         points = structured_to_unstructured(data[['x', 'y', 'z']], dtype=np.float32)
 
-        print(f'points shape before transform: {points.shape}')
-        print(f'first row: {points[0]}')
+        #print(f'points shape before transform: {points.shape}')
+        #print(f'first row: {points[0]}')
 
         if msg.header.frame_id != self.output_frame: # ?
           # fetch transform for target frame
@@ -54,10 +54,57 @@ class ClusterDetector:
         # transform points to target frame
         points = points.dot(tf_matrix.T)
 
-        print(f'tf_matrix: {tf_matrix}')
-        print(f'points shape after transform: {points.shape}')
-        
+        #print(f'tf_matrix: {tf_matrix}')
+        #print(f'points shape after transform: {points.shape}')
 
+        detected_object_array = DetectedObjectArray()
+        detected_object_array.header.stamp = msg.stamp
+        detected_object_array.header.frame = self.output_frame
+        
+        labels = structured_to_unstructured(data['label'], dtype=np.int32) # maybe has to be data[['label']]
+        detected_object_array.array = [] # get "array" actual parameter name
+        
+        if len(labels) == 0: # no clusters
+            self.objects_pub.publish(detected_object_array)
+            return
+        
+        for i in range(labels.max() + 1):
+            # create mask
+            mask = (labels == i)
+            # select points for one object from an array using a mask
+            # rows are selected using a binary mask, and only the first 3 columns are selected: x, y, and z coordinates
+            points3d = points[mask,:3]
+            
+            if len(points3d) < self.min_cluster_size:
+                continue
+
+            centroid = np.mean(points3d, axis=1)
+
+            detected_object = DetectedObject()
+            detected_object.centroid.x = centroid[0]
+            detected_object.centroid.y = centroid[1]
+            detected_object.centroid.z = centroid[2]
+            
+            # create convex hull
+            points_2d = MultiPoint(points[mask,:2])
+            hull = points_2d.convex_hull
+            convex_hull_points = [a for hull in [[x, y, centroid[2]] for x, y in hull.exterior.coords] for a in hull]
+            detected_object.convex_hull = convex_hull_points
+
+            detected_object.header.stamp = msg.stamp
+            detected_object.header.frame = self.output_frame
+            detected_object.id = i
+            detected_object.label = "unknown"
+            detected_object.color = BLUE80P
+            detected_object.valid = True
+            detected_object.position_reliable = True
+            detected_object.velocity_reliable = False
+            detected_object.acceleration_reliable = False
+
+            detected_object_array.array.append(detected_object)
+
+            self.objects_pub.publish(detected_object_array)
+    
     def run(self):
         rospy.spin()
 
