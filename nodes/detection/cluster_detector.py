@@ -103,7 +103,7 @@ class ClusterDetector:
 
             detected_object_array.array.append(detected_object)
 
-            self.objects_pub.publish(detected_object_array)
+        self.objects_pub.publish(detected_object_array)
     
     def run(self):
         rospy.spin()
