@@ -10,6 +10,7 @@ from autoware_mini.msg import Path, DetectedObjectArray
 from sensor_msgs.msg import PointCloud2
 from shapely.geometry import LineString
 from shapely import prepare, buffer
+from shapely import Polygon, intersects, intersection, get_coordinates
 
 DTYPE = np.dtype([
     ('x', np.float32),
@@ -61,10 +62,26 @@ class CollisionPointsManager:
             return # maybe change this to something else
           
         path_linestring = LineString([(w.position.x, w.position.y) for w in msg.waypoints])
-        # prepare(path_linestring) # prepare path - creates spatial tree, making the spatial queries more efficient
         
-    
+        local_path_buffer = buffer(path_linestring, distance=self.safety_box_width/2, cap_style='flat')
+        prepare(local_path_buffer) # prepare path - creates spatial tree, making the spatial queries more efficient
 
+        for object in detected_objects:
+            object_polygon = Polygon(shell=object.convex_hull)
+            if intersects(object_polygon, local_path_buffer):
+                geometry_overlap = intersection(object_polygon, local_path_buffer)
+                intersection_points = get_coordinates(geometry_overlap)
+                for x, y in intersection_points:
+                    collision_points = np.append(collision_points, np.array([(x, y, obj.centroid.z, 
+                                                                              obj.velocity.x, obj.velocity.y, obj.velocity.z,
+                                                                              self.braking_safety_distance_obstacle, np.inf, 3 if object_speed < self.stopped_speed_limit else 4)], dtype=DTYPE))
+        
+        local_path_collision_msg = msgify(PointCloud2, collision_points)
+        local_path_collision_msg.header.stamp = msg.header.stamp
+        local_path_collision_msg.header.frame_id = msg.header.frame_id
+        self.local_path_collision_pub.publish(local_path_collision_msg)   
+        print(collision_points)
+                    
     def run(self):
         rospy.spin()
 
