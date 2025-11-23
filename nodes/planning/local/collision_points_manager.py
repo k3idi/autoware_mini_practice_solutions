@@ -32,9 +32,11 @@ class CollisionPointsManager:
         self.safety_box_width = rospy.get_param("safety_box_width")
         self.stopped_speed_limit = rospy.get_param("stopped_speed_limit")
         self.braking_safety_distance_obstacle = rospy.get_param("~braking_safety_distance_obstacle")
+        self.braking_safety_distance_goal = rospy.get_param("~braking_safety_distance_goal")
 
         # variables
         self.detected_objects = None
+        self.goal_waypoint = None
 
         # Lock for thread safety
         self.lock = threading.Lock()
@@ -45,16 +47,20 @@ class CollisionPointsManager:
         # subscribers
         rospy.Subscriber('extracted_local_path', Path, self.path_callback, queue_size=1, tcp_nodelay=True)
         rospy.Subscriber('/detection/final_objects', DetectedObjectArray, self.detected_objects_callback, queue_size=1, buff_size=2**20, tcp_nodelay=True)
+        rospy.Subscriber('global_path', Path, self.global_path_callback, queue_size=None, tcp_nodelay=True)
 
     def detected_objects_callback(self, msg):
         self.detected_objects = msg.objects
 
+    def global_path_callback(self, msg):
+        self.goal_waypoint = msg.waypoints[len(msg.waypoints) - 1]
+    
     def path_callback(self, msg):
         with self.lock:
             detected_objects = self.detected_objects
         collision_points = np.array([], dtype=DTYPE)
       
-        if len(msg.waypoints) == 0: # maybe this check won't work, i have to check in local_path_extractor.py
+        if len(msg.waypoints) == 0:
             local_path_collision_msg = msgify(PointCloud2, collision_points)
             local_path_collision_msg.header.stamp = msg.header.stamp
             local_path_collision_msg.header.frame_id = msg.header.frame_id
@@ -75,12 +81,15 @@ class CollisionPointsManager:
                     collision_points = np.append(collision_points, np.array([(x, y, obj.centroid.z, 
                                                                               obj.velocity.x, obj.velocity.y, obj.velocity.z,
                                                                               self.braking_safety_distance_obstacle, np.inf, 3 if object_speed < self.stopped_speed_limit else 4)], dtype=DTYPE))
+
+        if self.goal_waypoint is not None:
+            x, y, z = self.goal_waypoint.position.x, self.goal_waypoint.position.y, self.goal_waypoint.position.z
+            collision_points = np.append(collision_points, np.array([(x, y, z, 0, 0, 0, self.braking_safety_distance_goal, np.inf, 1)], dtype=DTYPE))
         
         local_path_collision_msg = msgify(PointCloud2, collision_points)
         local_path_collision_msg.header.stamp = msg.header.stamp
         local_path_collision_msg.header.frame_id = msg.header.frame_id
         self.local_path_collision_pub.publish(local_path_collision_msg)   
-        print(collision_points)
                     
     def run(self):
         rospy.spin()
