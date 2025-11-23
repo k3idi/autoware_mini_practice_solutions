@@ -74,25 +74,31 @@ class SpeedPlanner:
 
         local_path_linestring = shapely.LineString([w.position.x, w.position.y, w.position.z] for w in local_path_msg.waypoints)
         collision_points_shapely = shapely.points(structured_to_unstructured(collision_points[['x', 'y', 'z']]))
-        collision_point_abs_distances = np.array([local_path_linestring.project(collision_point_shapely) for collision_point_shapely in collision_points_shapely])
-
+        collision_point_abs_distances = np.array([(local_path_linestring.project(collision_point_shapely) - self.distance_to_car_front - collision_point_shapely['distance_to_stop']) for collision_point_shapely in collision_points_shapely])
 
         fresh_waypoints = []
         closest_object_distance = 0 # distance between the first waypoint and the collision point closest to it
+        
         # for every waypoint along the local path, find the closest collision point (that is ahead of the waypoint) and corresponding target velocity
         for i, wp in enumerate(local_path_msg.waypoints):
             wp_shapely = shapely.points([wp.position.x, wp.position.y, wp.position.z])
             wp_abs_distance = local_path_linestring.project(wp_shapely) # by abs_distance i mean that this is the distance from the beginning of the local_path_linestring
+            
             closest_collision_point_distance = 10000 # start with a big number
+            
             for collision_point_abs_distance in collision_point_distances:
                 if collision_point_abs_distance < wp_abs_distance: # the waypoint is past this collision point
                     continue
+                    
                 collision_point_distance = collision_point_abs_distance - wp_abs_distance # distance from the waypoint to the collision point
                 if collision_point_distance < closest_collision_point_distance:
                     closest_collision_point_distance = collision_point_distance
+                    
             target_velocity = (2*self.default_deceleration*closest_collision_point_distance)**0.5
             wp.speed = min(target_velocity, wp.speed)
+            
             fresh_waypoints.append(wp)
+            
             if i == 0:
                 closest_object_distance = closest_collision_point_distance
 
