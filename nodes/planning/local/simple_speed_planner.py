@@ -80,12 +80,16 @@ class SpeedPlanner:
         local_path_linestring = shapely.LineString([w.position.x, w.position.y, w.position.z] for w in local_path_msg.waypoints)
         collision_points_shapely = shapely.points(structured_to_unstructured(collision_points[['x', 'y', 'z']]))
         collision_point_abs_distances = np.array((local_path_linestring.project(collision_point_shapely) - self.distance_to_car_front - collision_point_shapely['distance_to_stop']) for collision_point_shapely in collision_points_shapely)
+        
         collision_point_heading_angles = np.array(self.get_heading_at_distance(local_path_linestring, distance) for distance in collision_point_abs_distances)
         collision_point_velocity_vectors = np.array(Vector(collision_point['vx'], collision_point['vy'], collision_point['vz']) for collision_point in collision_points)
         collision_point_velocities = np.zeros(len(collision_points))
         for i in range(len(collision_point_velocities)):
             collision_point_velocities[i] = project_vector_to_heading(collision_point_heading_angles[i], collision_point_velocity_vectors[i])
-        collision_point_speeds = np.array((collision_point['vx']**2 + collision_point['vy']**2 + collision_point['vz']**2)**0.5 for collision_point in collision_points) # actual velocity
+        #collision_point_speeds = np.array((collision_point['vx']**2 + collision_point['vy']**2 + collision_point['vz']**2)**0.5 for collision_point in collision_points) # actual velocity, only here for printing
+        
+        target_distances = self.braking_reaction_time * abs(collision_point_velocities)
+        collision_point_abs_distances -= target_distances
         
         fresh_waypoints = []
         closest_object_distance = 0 # distance between the first waypoint and the collision point closest to it
