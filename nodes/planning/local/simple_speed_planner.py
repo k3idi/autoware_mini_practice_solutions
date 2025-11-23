@@ -95,32 +95,39 @@ class SpeedPlanner:
             wp_shapely = shapely.points([wp.position.x, wp.position.y, wp.position.z])
             wp_abs_distance = local_path_linestring.project(wp_shapely) # by abs_distance i mean that this is the distance from the beginning of the local_path_linestring
             
-            closest_collision_point_distance = 10000 # start with a big number
+            smallest_target_velocity = 10000
+            smallest_target_velocity_index = 0
             
-            for collision_point_abs_distance in collision_point_distances:
+            for j, collision_point_abs_distance in enumerate(collision_point_distances):
                 if collision_point_abs_distance < wp_abs_distance: # the waypoint is past this collision point
                     continue
                     
                 collision_point_distance = collision_point_abs_distance - wp_abs_distance # distance from the waypoint to the collision point
                 if collision_point_distance < closest_collision_point_distance:
                     closest_collision_point_distance = collision_point_distance
+
+                collision_point_target_velocity = (collision_point_velocities[j]**2 + 2*self.default_deceleration*collision_point_distance)**0.5
+                if collision_point_target_velocity < smallest_target_velocity:
+                    smallest_target_velocity = collision_point_target_velocity
+                    smallest_target_velocity_index = j
                     
-            target_velocity = (2*self.default_deceleration*closest_collision_point_distance)**0.5
-            wp.speed = min(target_velocity, wp.speed)
+            wp.speed = min(smallest_target_velocity, wp.speed)
             
             fresh_waypoints.append(wp)
             
             if i == 0:
-                closest_object_distance = closest_collision_point_distance
+                closest_object_distance = collision_point_abs_distances[smallest_target_velocity_index] - wp_abs_distance
+                closest_object_velocity = smallest_target_velocity
+                stopping_point_distance = closest_object_distance # i already added "- self.distance_to_car_front - collision_point_shapely['distance_to_stop']" to collision point distance calculations
 
         # Update the lane message with the calculated values
         path = Path()
         path.header = local_path_msg.header
         path.waypoints = fresh_waypoints
         path.closest_object_distance = closest_object_distance # Distance to the collision point with lowest target velocity (also closest object for now)
-        path.closest_object_velocity = 0 # Velocity of the collision point with lowest target velocity (0)
+        path.closest_object_velocity = closest_object_velocity # Velocity of the collision point with lowest target velocity (0)
         path.is_blocked = True
-        path.stopping_point_distance = closest_object_distance # Stopping point distance can be set to the distance to the closest object for now
+        path.stopping_point_distance = stopping_point_distance # Stopping point distance can be set to the distance to the closest object for now
         path.collision_point_category = collision_point_category # Category of collision point with lowest target velocity
         self.local_path_pub.publish(path)
 
