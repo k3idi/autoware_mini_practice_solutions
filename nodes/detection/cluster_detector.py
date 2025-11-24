@@ -62,7 +62,7 @@ class ClusterDetector:
         detected_object_array.header.frame = self.output_frame
         
         labels = structured_to_unstructured(data['label'], dtype=np.int32) # maybe has to be data[['label']]
-        detected_object_array.array = [] # get "array" actual parameter name
+        detected_object_array.objects = [] 
         
         if len(labels) == 0: # no clusters
             self.objects_pub.publish(detected_object_array)
@@ -91,8 +91,6 @@ class ClusterDetector:
             convex_hull_points = [a for hull in [[x, y, centroid[2]] for x, y in hull.exterior.coords] for a in hull]
             detected_object.convex_hull = convex_hull_points
 
-            detected_object.header.stamp = msg.stamp
-            detected_object.header.frame = self.output_frame
             detected_object.id = i
             detected_object.label = "unknown"
             detected_object.color = BLUE80P
