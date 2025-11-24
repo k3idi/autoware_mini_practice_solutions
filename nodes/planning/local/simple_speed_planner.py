@@ -15,7 +15,9 @@ from geometry_msgs.msg import PoseStamped, TwistStamped, Vector3
 from autoware_mini.geometry import project_vector_to_heading, get_distance_between_two_points_2d
 
 class Vector:
+    
     def __init__(self, x, y, z):
+        
         self.x = x
         self.y = y
         self.z = z
