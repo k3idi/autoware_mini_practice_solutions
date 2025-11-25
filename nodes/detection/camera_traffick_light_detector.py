@@ -10,6 +10,7 @@ from lanelet2.io import Origin, load
 from lanelet2.projection import UtmProjector
 from image_geometry import PinholeCameraModel
 from shapely.geometry import LineString
+from shapely import prepare, buffer, intersects
 
 from geometry_msgs.msg import Point, PointStamped
 from sensor_msgs.msg import Image
@@ -53,6 +54,7 @@ class CameraTrafficLightDetector:
         self.roi_height_extent = rospy.get_param("~roi_height_extent")
         self.min_roi_width = rospy.get_param("~min_roi_width")
         self.transform_timeout = rospy.get_param("~transform_timeout")
+        self.safety_box_width = rospy.get_param("safety_box_width")
         # Parameters related to lanelet2 map loading
         coordinate_transformer = rospy.get_param("/localization/coordinate_transformer")
         use_custom_origin = rospy.get_param("/localization/use_custom_origin")
@@ -107,6 +109,15 @@ class CameraTrafficLightDetector:
 
         # used in calculate_roi_coordinates to filter out only relevant signals
         stoplines_on_path = []
+
+        if len(local_path_msg.waypoints) != 0:
+            path_linestring = LineString([(w.position.x, w.position.y) for w in local_path_msg.waypoints])
+            local_path_buffer = buffer(path_linestring, distance=self.safety_box_width / 2, cap_style='flat')
+            prepare(local_path_buffer)
+
+            for stoplineId, stopline_geometry in self.tfl_stoplines:
+                if intersects(stopline_geometry, local_path_buffer):
+                    stoplines_on_path.append(stoplineId)
 
         with self.lock:
             self.stoplines_on_path = stoplines_on_path
