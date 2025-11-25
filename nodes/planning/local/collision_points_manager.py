@@ -53,7 +53,8 @@ class CollisionPointsManager:
         self.detected_objects = msg.objects
 
     def global_path_callback(self, msg):
-        self.goal_waypoint = msg.waypoints[len(msg.waypoints) - 1]
+        if len(msg.waypoints) != 0:
+            self.goal_waypoint = msg.waypoints[len(msg.waypoints) - 1]
     
     def path_callback(self, msg):
         with self.lock:
