@@ -126,6 +126,16 @@ class CameraTrafficLightDetector:
             stoplines_on_path = self.stoplines_on_path
             transform_from_frame = self.transform_from_frame
 
+        traffick_light_result_msg = TrafficLightResultArray()
+        traffick_light_result_msg.header.stamp = camera_image_msg.header.stamp
+        self.tfl_status_pub(traffick_light_result_msg)
+
+        image = self.bridge.imgmsg_to_cv2(camera_image_msg, desired_encoding='rgb8')
+        if self.rectify_image:
+            self.camera_model.rectifyImage(image, image)
+
+        self.publish_roi_images(image, [], [], [], [])
+
     def calculate_roi_coordinates(self, stoplines_on_path, transform):
         pass
 
