@@ -96,7 +96,7 @@ class SpeedPlanner:
             collision_point_velocities[i] = project_vector_to_heading(collision_point_heading_angles[i], collision_point_velocity_vectors[i])
         
         target_distances = self.distance_to_car_front + self.braking_reaction_time * abs(collision_point_velocities)
-        for i range(len(target_distances)):
+        for i in range(len(target_distances)):
             target_distances[i] += collision_points[i]['distance_to_stop']
 
         # find the collision point that is closest to the car's current position
