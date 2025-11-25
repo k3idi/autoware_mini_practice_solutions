@@ -78,7 +78,7 @@ class SpeedPlanner:
 
         local_path_linestring = shapely.LineString(
             [w.position.x, w.position.y, w.position.z] for w in local_path_msg.waypoints)
-        if len(collision_points) == 0:
+        if len(collision_points) == 0 or len(local_path_msg.waypoints) == 0:
             self.local_path_pub.publish(local_path_msg)
             return
 
@@ -102,7 +102,32 @@ class SpeedPlanner:
         fresh_waypoints = []
         closest_object_distance = 0 # distance between the first waypoint and the collision point closest to it
         smallest_target_velocity_index = 0
-        
+
+
+        # find closest collision point
+        wp = local_path_msg.waypoints[0]
+        wp_shapely = shapely.points([wp.position.x, wp.position.y, wp.position.z])
+        wp_abs_distance = local_path_linestring.project(wp_shapely)
+        smallest_target_velocity = 10000
+        smallest_target_velocity_index_2 = 0
+        closest_collision_point_distance = 10000
+        for j, collision_point_abs_distance in enumerate(collision_point_abs_distances):
+            if collision_point_abs_distance < wp_abs_distance:  # the waypoint is past this collision point
+                continue
+
+            collision_point_distance = collision_point_abs_distance - wp_abs_distance  # distance from the waypoint to the collision point
+            if collision_point_distance < closest_collision_point_distance:
+                closest_collision_point_distance = collision_point_distance
+
+            stopping_distance = max(0, collision_point_distance - self.distance_to_car_front - collision_points[j][
+                'distance_to_stop'] - target_distances[j])
+            collision_point_target_velocity = (max(0, collision_point_velocities[
+                j]) ** 2 + 2 * self.default_deceleration * stopping_distance) ** 0.5
+            if collision_point_target_velocity < smallest_target_velocity:
+                smallest_target_velocity = collision_point_target_velocity
+                smallest_target_velocity_index_2 = j
+
+
         # for every waypoint along the local path, find the closest collision point (that is ahead of the waypoint) and corresponding target velocity
         for i, wp in enumerate(local_path_msg.waypoints):
             wp_shapely = shapely.points([wp.position.x, wp.position.y, wp.position.z])
@@ -129,12 +154,11 @@ class SpeedPlanner:
             wp.speed = min(smallest_target_velocity, wp.speed)
             
             fresh_waypoints.append(wp)
-            
-            if i == 0:
-                closest_object_distance = collision_point_abs_distances[smallest_target_velocity_index] - wp_abs_distance
-                closest_object_velocity = smallest_target_velocity
-                stopping_point_distance = stopping_distance
-                smallest_target_velocity_index = smallest_target_velocity_index_2
+
+            closest_object_distance = collision_point_abs_distances[smallest_target_velocity_index] - wp_abs_distance
+            closest_object_velocity = smallest_target_velocity
+            stopping_point_distance = stopping_distance
+            smallest_target_velocity_index = smallest_target_velocity_index_2
 
         # Update the lane message with the calculated values
         path = Path()
