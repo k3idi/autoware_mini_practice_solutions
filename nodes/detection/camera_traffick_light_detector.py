@@ -139,7 +139,7 @@ class CameraTrafficLightDetector:
 
         traffick_light_result_msg = TrafficLightResultArray()
         traffick_light_result_msg.header.stamp = camera_image_msg.header.stamp
-        self.tfl_status_pub(traffick_light_result_msg)
+
 
         image = self.bridge.imgmsg_to_cv2(camera_image_msg, desired_encoding='rgb8')
         if self.rectify_image:
@@ -151,20 +151,25 @@ class CameraTrafficLightDetector:
             transform = self.tf_buffer.lookup_transform(camera_image_msg, transform_from_frame, camera_image_msg.header.stamp, rospy.Duration(self.transform_timeout))
             rois = self.calculate_roi_coordinates(self.stoplines_on_path, transform)
 
+        classes = []
+        scores = []
         if len(rois) > 0:
             roi_images = self.create_roi_images(image, rois)
             # run model and do prediction
             predictions = self.model.run(None, {'conv2d_1_input': roi_images})[0]
 
-            classes = 0
-            scores = 0
+            cl = 0
+            sc = 0
             for i, value in enumerate(predictions):
-                if value > scores:
-                    scores = value
-                    classes = i
-
+                if value > sc:
+                    sc = value
+                    cl = i
+                    
+            classes.append(cls)
+            scores.append(sc)
+            
             # extract results in sync with rois
-            for cl, (stoplineId, plId, _, _, _, _) in zip(classes, rois):
+            for cl, (stoplineId, plId, _, _, _, _) in zip(cls, rois):
                 tfl_result = TrafficLightResult()
                 tfl_result.light_id = plId
                 tfl_result.stopline_id = stoplineId
@@ -173,8 +178,8 @@ class CameraTrafficLightDetector:
 
                 tfl_status.results.append(tfl_result)
     
-        self.publish_roi_images(image, rois, [], [], camera_image_msg.header.stamp)
-        # def publish_roi_images(self, image, rois, classes, scores, image_time_stamp):
+        self.publish_roi_images(image, rois, classes, scores, camera_image_msg.header.stamp)
+        self.tfl_status_pub(traffick_light_result_msg)
 
     def calculate_roi_coordinates(self, stoplines_on_path, transform):
         rois = []
