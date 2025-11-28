@@ -99,7 +99,7 @@ class ClusterDetector:
             detected_object.velocity_reliable = False
             detected_object.acceleration_reliable = False
 
-            detected_object_array.array.append(detected_object)
+            detected_object_array.objects.append(detected_object)
 
         self.objects_pub.publish(detected_object_array)
     
