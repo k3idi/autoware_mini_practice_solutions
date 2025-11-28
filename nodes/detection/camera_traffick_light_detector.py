@@ -151,10 +151,30 @@ class CameraTrafficLightDetector:
             transform = self.tf_buffer.lookup_transform(camera_image_msg, transform_from_frame, camera_image_msg.header.stamp, rospy.Duration(self.transform_timeout))
             rois = self.calculate_roi_coordinates(self.stoplines_on_path, transform)
 
+        if len(rois) > 0:
+            roi_images = self.create_roi_images(image, rois)
+            # run model and do prediction
+            predictions = self.model.run(None, {'conv2d_1_input': roi_images})[0]
 
-            
+            classes = 0
+            scores = 0
+            for i, value in enumerate(predictions):
+                if value > scores:
+                    scores = value
+                    classes = i
+
+            # extract results in sync with rois
+            for cl, (stoplineId, plId, _, _, _, _) in zip(classes, rois):
+                tfl_result = TrafficLightResult()
+                tfl_result.light_id = plId
+                tfl_result.stopline_id = stoplineId
+                tfl_result.recognition_result = CLASSIFIER_RESULT_TO_TLRESULT[cl]
+                tfl_result.recognition_result_str = CLASSIFIER_RESULT_TO_STRING[cl]
+
+                tfl_status.results.append(tfl_result)
     
-        self.publish_roi_images(image, rois, [], [], [])
+        self.publish_roi_images(image, rois, [], [], camera_image_msg.header.stamp)
+        # def publish_roi_images(self, image, rois, classes, scores, image_time_stamp):
 
     def calculate_roi_coordinates(self, stoplines_on_path, transform):
         rois = []
@@ -170,7 +190,7 @@ class CameraTrafficLightDetector:
                     point_camera = do_transform_point(PointStamped(point=point_map), transform).point
                     u, v = self.camera_model.project3dToPixel((point_camera.x, point_camera.y, point_camera.z))
                     if u < 0 or u >= self.camera_model.width or v < 0 or v >= self.camera_model.height:
-                        continue
+                        break
         
                     # convert the extent in meters to extent in pixels
                     extent_x_px = self.camera_model.fx() * self.roi_width_extent / point_camera.z
@@ -203,7 +223,17 @@ class CameraTrafficLightDetector:
 
 
     def create_roi_images(self, image, rois):
-        pass
+        roi_images = []
+        for _, _, min_u, max_u, min_v, max_v in rois:
+            if type(image) == type(np.zeros((2, 2))): # image is a numpy array matrix
+                selected_area = image[min_v:max_v+1, min_u:max_u+1]
+            else: # image is made of lists
+                selected_area = [image[i][min_u:max_u+1] for i in range(min_v, max_v+1)]
+            cv2.resize(selected_area, selected_area, (128, 128))
+            selected_area = selected_area.astype(float32)
+            roi_images.append(selected_area)
+
+        return np.stack(roi_images, axis=0) / 255.0
 
     def publish_roi_images(self, image, rois, classes, scores, image_time_stamp):
 
