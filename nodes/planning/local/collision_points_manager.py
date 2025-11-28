@@ -33,11 +33,32 @@ class CollisionPointsManager:
         self.stopped_speed_limit = rospy.get_param("stopped_speed_limit")
         self.braking_safety_distance_obstacle = rospy.get_param("~braking_safety_distance_obstacle")
         self.braking_safety_distance_goal = rospy.get_param("~braking_safety_distance_goal")
+        self.braking_safety_distance_stopline = rospy.get_param("~braking_safety_distance_stopline")
+        # Parameters related to lanelet2 map loading
+        coordinate_transformer = rospy.get_param("/localization/coordinate_transformer")
+        use_custom_origin = rospy.get_param("/localization/use_custom_origin")
+        utm_origin_lat = rospy.get_param("/localization/utm_origin_lat")
+        utm_origin_lon = rospy.get_param("/localization/utm_origin_lon")
+        lanelet2_map_path = rospy.get_param("~lanelet2_map_path")
+
+        # Load the map using Lanelet2
+        if coordinate_transformer == "utm":
+            projector = UtmProjector(Origin(utm_origin_lat, utm_origin_lon), use_custom_origin, False)
+        else:
+            raise RuntimeError('Only "utm" is supported for lanelet2 map loading')
+        lanelet2_map = load(lanelet2_map_path, projector)
+        
+        # Extract all stop lines and signals from the lanelet2 map
+        all_stoplines = get_stoplines(lanelet2_map)
+        self.trafficlights = get_stoplines_trafficlights(lanelet2_map)
+        # If stopline_id is not in self.signals then it has no signals (traffic lights)
+        self.tfl_stoplines = {k: v for k, v in all_stoplines.items() if k in self.trafficlights}
 
         # variables
         self.detected_objects = None
         self.goal_waypoint = None
-
+        self.traffick_light_results = None
+        
         # Lock for thread safety
         self.lock = threading.Lock()
 
@@ -48,7 +69,11 @@ class CollisionPointsManager:
         rospy.Subscriber('extracted_local_path', Path, self.path_callback, queue_size=1, tcp_nodelay=True)
         rospy.Subscriber('/detection/final_objects', DetectedObjectArray, self.detected_objects_callback, queue_size=1, buff_size=2**20, tcp_nodelay=True)
         rospy.Subscriber('global_path', Path, self.global_path_callback, queue_size=None, tcp_nodelay=True)
+        rospy.Subscriber('/detection/traffic_light_status', TrafficLightResultArray, self.traffic_light_status_callback, queue_size=1, tcp_nodelay=True)
 
+    def traffic_light_status_callback(self, msg):
+        self.traffick_light_results = msg.traffick_light_results  # i don't know what this actually is supposed to be
+        
     def detected_objects_callback(self, msg):
         self.detected_objects = msg.objects
 
@@ -69,6 +94,7 @@ class CollisionPointsManager:
             return # maybe change this to something else
           
         path_linestring = LineString([(w.position.x, w.position.y) for w in msg.waypoints])
+        self.path_linestring = path_linestring
         
         local_path_buffer = buffer(path_linestring, distance=self.safety_box_width/2, cap_style='flat')
         prepare(local_path_buffer) # prepare path - creates spatial tree, making the spatial queries more efficient
@@ -86,6 +112,16 @@ class CollisionPointsManager:
         if self.goal_waypoint is not None:
             x, y, z = self.goal_waypoint.position.x, self.goal_waypoint.position.y, self.goal_waypoint.position.z
             collision_points = np.append(collision_points, np.array([(x, y, z, 0, 0, 0, self.braking_safety_distance_goal, np.inf, 1)], dtype=DTYPE))
+
+        for i, trafficklight in enumerate(self.trafficlights):
+            if self.traffick_light_results[i] # i think i should be using the traffick light id instead of just an index... but i don't know how theobjects of class "TrafficLightResultArray" and TrafficLightResultlook like
+                if not (self.traffick_light_results[i].recognition_result_str == "red" or self.traffick_light_results[i].recognition_result_str == "yellow"):
+                    continue
+            if intersects(trafficklight, local_path_buffer):
+                geometry_overlap = intersection(trafficklight, local_path_buffer)
+                intersection_points = get_coordinates(geometry_overlap)
+                for x, y in intersection_points:
+                    collision_points = np.append(collision_points, np.array([(x, y, 0, 0, 0, 0, self.braking_safety_distance_stopline, np.inf, 2)], dtype=DTYPE))
         
         local_path_collision_msg = msgify(PointCloud2, collision_points)
         local_path_collision_msg.header.stamp = msg.header.stamp
