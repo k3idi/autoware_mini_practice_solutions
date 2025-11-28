@@ -11,6 +11,8 @@ from sensor_msgs.msg import PointCloud2
 from shapely.geometry import LineString
 from shapely import prepare, buffer
 from shapely import Polygon, intersects, intersection, get_coordinates
+from lanelet2.io import Origin, load
+from lanelet2.projection import UtmProjector
 
 DTYPE = np.dtype([
     ('x', np.float32),
@@ -72,7 +74,7 @@ class CollisionPointsManager:
         rospy.Subscriber('/detection/traffic_light_status', TrafficLightResultArray, self.traffic_light_status_callback, queue_size=1, tcp_nodelay=True)
 
     def traffic_light_status_callback(self, msg):
-        self.traffick_light_results = msg.traffick_light_results  # i don't know what this actually is supposed to be
+        self.traffick_light_results = msg.results  # i don't know what this actually is supposed to be
         
     def detected_objects_callback(self, msg):
         self.detected_objects = msg.objects
@@ -113,21 +115,72 @@ class CollisionPointsManager:
             x, y, z = self.goal_waypoint.position.x, self.goal_waypoint.position.y, self.goal_waypoint.position.z
             collision_points = np.append(collision_points, np.array([(x, y, z, 0, 0, 0, self.braking_safety_distance_goal, np.inf, 1)], dtype=DTYPE))
 
-        for i, trafficklight in enumerate(self.trafficlights):
-            if self.traffick_light_results[i] # i think i should be using the traffick light id instead of just an index... but i don't know how theobjects of class "TrafficLightResultArray" and TrafficLightResultlook like
-                if not (self.traffick_light_results[i].recognition_result_str == "red" or self.traffick_light_results[i].recognition_result_str == "yellow"):
+        if self.traffick_light_results is not None:
+            for light in self.traffick_light_results:
+                if not (light.recognition_result_str == "red" or light.recognition_result_str == "yellow"):
                     continue
-            if intersects(trafficklight, local_path_buffer):
-                geometry_overlap = intersection(trafficklight, local_path_buffer)
-                intersection_points = get_coordinates(geometry_overlap)
-                for x, y in intersection_points:
-                    collision_points = np.append(collision_points, np.array([(x, y, 0, 0, 0, 0, self.braking_safety_distance_stopline, np.inf, 2)], dtype=DTYPE))
+
+                stopline = self.tfl_stoplines[light.light_id]
+
+                if intersects(trafficklight, local_path_buffer): # this might always be True
+                    geometry_overlap = intersection(stopline, local_path_buffer)
+                    intersection_points = get_coordinates(geometry_overlap)
+                    for x, y in intersection_points:
+                        collision_points = np.append(collision_points, np.array([(x, y, 0, 0, 0, 0, self.braking_safety_distance_stopline, np.inf, 2)], dtype=DTYPE))
         
         local_path_collision_msg = msgify(PointCloud2, collision_points)
         local_path_collision_msg.header.stamp = msg.header.stamp
         local_path_collision_msg.header.frame_id = msg.header.frame_id
         self.local_path_collision_pub.publish(local_path_collision_msg)   
-                    
+
+    def get_stoplines(lanelet2_map):
+        """
+        Add all stop lines to a dictionary with stop_line id as key and stop_line as value
+        :param lanelet2_map: lanelet2 map
+        :return: {stop_line_id: stopline, ...}
+        """
+    
+        stoplines = {}
+        for line in lanelet2_map.lineStringLayer:
+            if line.attributes:
+                if line.attributes["type"] == "stop_line":
+                    # add stoline to dictionary and convert it to shapely LineString
+                    stoplines[line.id] = LineString([(p.x, p.y) for p in line])
+    
+        return stoplines
+    
+    
+    def get_stoplines_trafficlights(lanelet2_map):
+        """
+        Iterate over all regulatory_elements with subtype traffic light and extract the stoplines and sinals.
+        Organize the data into dictionary indexed by stopline id that contains a traffic_light id and the four coners of the traffic light.
+        :param lanelet2_map: lanelet2 map
+        :return: {stopline_id: {traffic_light_id: {'top_left': [x, y, z], 'top_right': [...], 'bottom_left': [...], 'bottom_right': [...]}, ...}, ...}
+        """
+    
+        signals = {}
+    
+        for reg_el in lanelet2_map.regulatoryElementLayer:
+            if reg_el.attributes["subtype"] == "traffic_light":
+                # ref_line is the stop line and there is only 1 stopline per traffic light reg_el
+                linkId = reg_el.parameters["ref_line"][0].id
+    
+                for tfl in reg_el.parameters["refers"]:
+                    tfl_height = float(tfl.attributes["height"])
+                    # plId represents the traffic light (pole), one stop line can be associated with multiple traffic lights
+                    plId = tfl.id
+    
+                    traffic_light_data = {'top_left': [tfl[0].x, tfl[0].y, tfl[0].z + tfl_height],
+                                          'top_right': [tfl[1].x, tfl[1].y, tfl[1].z + tfl_height],
+                                          'bottom_left': [tfl[0].x, tfl[0].y, tfl[0].z],
+                                          'bottom_right': [tfl[1].x, tfl[1].y, tfl[1].z]}
+    
+                    # signals is a dictionary indexed by stopline id and contains dictionary of traffic lights indexed by pole id
+                    # which in turn contains a dictionary of traffic light corners
+                    signals.setdefault(linkId, {}).setdefault(plId, traffic_light_data)
+    
+        return signals
+    
     def run(self):
         rospy.spin()
 
