@@ -138,6 +138,7 @@ class CameraTrafficLightDetector:
             transform_from_frame = self.transform_from_frame
 
         traffick_light_result_msg = TrafficLightResultArray()
+        traffick_light_result_msg.results = []
         traffick_light_result_msg.header.stamp = camera_image_msg.header.stamp
 
 
@@ -176,7 +177,7 @@ class CameraTrafficLightDetector:
                 tfl_result.recognition_result = CLASSIFIER_RESULT_TO_TLRESULT[cl]
                 tfl_result.recognition_result_str = CLASSIFIER_RESULT_TO_STRING[cl]
 
-                tfl_status.results.append(tfl_result)
+                traffick_light_result_msg.results.append(tfl_result)
     
         self.publish_roi_images(image, rois, classes, scores, camera_image_msg.header.stamp)
         self.tfl_status_pub(traffick_light_result_msg)
