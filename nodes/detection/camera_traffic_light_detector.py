@@ -166,18 +166,18 @@ class CameraTrafficLightDetector:
                     sc = value
                     cl = i
                     
-            classes.append(cls)
+            classes.append(cl)
             scores.append(sc)
             
-            # extract results in sync with rois
-            for cl, (stoplineId, plId, _, _, _, _) in zip(cls, rois):
-                tfl_result = TrafficLightResult()
-                tfl_result.light_id = plId
-                tfl_result.stopline_id = stoplineId
-                tfl_result.recognition_result = CLASSIFIER_RESULT_TO_TLRESULT[cl]
-                tfl_result.recognition_result_str = CLASSIFIER_RESULT_TO_STRING[cl]
+        # extract results in sync with rois
+        for cl, (stoplineId, plId, _, _, _, _) in zip(classes, rois):
+            tfl_result = TrafficLightResult()
+            tfl_result.light_id = plId
+            tfl_result.stopline_id = stoplineId
+            tfl_result.recognition_result = CLASSIFIER_RESULT_TO_TLRESULT[cl]
+            tfl_result.recognition_result_str = CLASSIFIER_RESULT_TO_STRING[cl]
 
-                traffick_light_result_msg.results.append(tfl_result)
+            traffick_light_result_msg.results.append(tfl_result)
     
         self.publish_roi_images(image, rois, classes, scores, camera_image_msg.header.stamp)
         self.tfl_status_pub(traffick_light_result_msg)

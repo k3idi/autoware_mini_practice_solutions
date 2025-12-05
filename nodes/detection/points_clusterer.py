@@ -35,7 +35,8 @@ class PointsClusterer:
             if labels[i] != -1:
                 points_labelled.append((points[i][0], points[i][1], points[i][2], labels[i]))
 
-        data = unstructured_to_structured(points_labeled, dtype=np.dtype([
+        points_labelled = np.array(points_labelled)
+        data = unstructured_to_structured(points_labelled, dtype=np.dtype([
            ('x', np.float32),
            ('y', np.float32),
            ('z', np.float32),

@@ -7,6 +7,7 @@ import numpy as np
 import threading
 from ros_numpy import msgify
 from autoware_mini.msg import Path, DetectedObjectArray
+from autoware_mini.msg import TrafficLightResult, TrafficLightResultArray
 from sensor_msgs.msg import PointCloud2
 from shapely.geometry import LineString
 from shapely import prepare, buffer
@@ -51,8 +52,8 @@ class CollisionPointsManager:
         lanelet2_map = load(lanelet2_map_path, projector)
         
         # Extract all stop lines and signals from the lanelet2 map
-        all_stoplines = get_stoplines(lanelet2_map)
-        self.trafficlights = get_stoplines_trafficlights(lanelet2_map)
+        all_stoplines = self.get_stoplines(lanelet2_map)
+        self.trafficlights = self.get_stoplines_trafficlights(lanelet2_map)
         # If stopline_id is not in self.signals then it has no signals (traffic lights)
         self.tfl_stoplines = {k: v for k, v in all_stoplines.items() if k in self.trafficlights}
 
@@ -107,9 +108,9 @@ class CollisionPointsManager:
                 geometry_overlap = intersection(object_polygon, local_path_buffer)
                 intersection_points = get_coordinates(geometry_overlap)
                 for x, y in intersection_points:
-                    collision_points = np.append(collision_points, np.array([(x, y, obj.centroid.z, 
-                                                                              obj.velocity.x, obj.velocity.y, obj.velocity.z,
-                                                                              self.braking_safety_distance_obstacle, np.inf, 3 if object_speed < self.stopped_speed_limit else 4)], dtype=DTYPE))
+                    collision_points = np.append(collision_points, np.array([(x, y, object.centroid.z,
+                                                                              object.velocity.x, object.velocity.y, object.velocity.z,
+                                                                              self.braking_safety_distance_obstacle, np.inf, 3 if object.speed < self.stopped_speed_limit else 4)], dtype=DTYPE))
 
         if self.goal_waypoint is not None:
             x, y, z = self.goal_waypoint.position.x, self.goal_waypoint.position.y, self.goal_waypoint.position.z
@@ -122,7 +123,7 @@ class CollisionPointsManager:
 
                 stopline = self.tfl_stoplines[light.light_id]
 
-                if intersects(trafficklight, local_path_buffer): # this might always be True
+                if intersects(stopline, local_path_buffer): # this might always be True
                     geometry_overlap = intersection(stopline, local_path_buffer)
                     intersection_points = get_coordinates(geometry_overlap)
                     for x, y in intersection_points:

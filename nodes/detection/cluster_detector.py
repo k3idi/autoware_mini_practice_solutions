@@ -50,18 +50,21 @@ class ClusterDetector:
         # make copy of points
         points = points.copy()
         # turn into homogeneous coordinates
-        points[:,3] = 1
+        #points[:,3] = 1
+        points_width_4 = np.zeros((len(points), len(points[0])+1), dtype=points.dtype)
+        for i in range(len(points)):
+            points_width_4[i] = np.concatenate((points[i], np.ones(1)))
         # transform points to target frame
-        points = points.dot(tf_matrix.T)
+        points = points_width_4.dot(tf_matrix.T)
 
         #print(f'tf_matrix: {tf_matrix}')
         #print(f'points shape after transform: {points.shape}')
 
         detected_object_array = DetectedObjectArray()
-        detected_object_array.header.stamp = msg.stamp
-        detected_object_array.header.frame = self.output_frame
+        detected_object_array.header.stamp = msg.header.stamp
+        detected_object_array.header.frame_id = self.output_frame
         
-        labels = structured_to_unstructured(data['label'], dtype=np.int32) # maybe has to be data[['label']]
+        labels = structured_to_unstructured(data[['label']], dtype=np.int32)
         detected_object_array.objects = [] 
         
         if len(labels) == 0: # no clusters
@@ -73,8 +76,13 @@ class ClusterDetector:
             mask = (labels == i)
             # select points for one object from an array using a mask
             # rows are selected using a binary mask, and only the first 3 columns are selected: x, y, and z coordinates
-            points3d = points[mask,:3]
-            
+
+            points3d = []
+            for j in range(len(points)):
+                if mask[j][0]:
+                    points3d.append(np.array([points[0], points[1], points[2]], dtype=points.dtype))
+            points3d = np.array(points3d, dtype=points.dtype)
+
             if len(points3d) < self.min_cluster_size:
                 continue
 
@@ -86,7 +94,15 @@ class ClusterDetector:
             detected_object.centroid.z = centroid[2]
             
             # create convex hull
-            points_2d = MultiPoint(points[mask,:2])
+            #points_2d = MultiPoint(points[mask,:2])
+
+            points_2d = []
+            for j in range(len(points)):
+                if mask[j][0]:
+                    points_2d.append(MultiPoint(np.array([points[0], points[1]], dtype=points.dtype)))
+            points_2d = np.array(points_2d, dtype=points.dtype)
+            #points_2d = MultiPoint(points_2d)
+
             hull = points_2d.convex_hull
             convex_hull_points = [a for hull in [[x, y, centroid[2]] for x, y in hull.exterior.coords] for a in hull]
             detected_object.convex_hull = convex_hull_points
